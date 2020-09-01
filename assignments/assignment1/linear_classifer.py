@@ -92,7 +92,7 @@ def l2_regularization(W, reg_strength):
 
     # TODO: implement l2 regularization and gradient
     # Your final implementation shouldn't have any loops
-    loss = np.sum(reg_strength*W*W)
+    loss = reg_strength*np.sum(W*W)
     grad = 2*reg_strength*W
     return loss, grad
     
@@ -122,9 +122,8 @@ def linear_softmax(X, W, target_index):
     dprediction = np.dot(X.T, probs)
     flag = np.zeros_like(probs)
     flag[np.arange(probs.shape[0])[:, np.newaxis], target_index] += 1
-    # dprediction[np.arange(W.shape[0])[:,np.newaxis], target_index] -= np.dot(X.T, np.ones(probs.shape))
     dprediction -= np.dot(X.T, flag)
-    return loss, dprediction/probs.shape[0]
+    return loss, dprediction/probs.shape[0]   
 
 
 class LinearSoftmaxClassifier():
