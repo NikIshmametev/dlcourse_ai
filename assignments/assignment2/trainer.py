@@ -3,6 +3,10 @@ from copy import deepcopy
 import numpy as np
 from metrics import multiclass_accuracy
 
+from dataset import load_svhn, random_split_train_val
+from model import TwoLayerNet
+from optim import SGD, MomentumSGD
+import os
 
 class Dataset:
     """
@@ -54,7 +58,7 @@ class Trainer:
     def setup_optimizers(self):
         params = self.model.params()
         self.optimizers = {}
-        for param_name, param in params.items():
+        for param_name, _ in params.items():
             self.optimizers[param_name] = deepcopy(self.optim)
 
     def compute_accuracy(self, X, y):
@@ -87,7 +91,7 @@ class Trainer:
         train_acc_history = []
         val_acc_history = []
         
-        for epoch in range(self.num_epochs):
+        for _ in range(self.num_epochs):
             shuffled_indices = np.arange(num_train)
             np.random.shuffle(shuffled_indices)
             sections = np.arange(self.batch_size, num_train, self.batch_size)
@@ -99,9 +103,8 @@ class Trainer:
                 # TODO Generate batches based on batch_indices and
                 # use model to generate loss and gradients for all
                 # the params
-
-                raise Exception("Not implemented!")
-
+                loss = self.model.compute_loss_and_gradients(self.dataset.train_X[batch_indices], 
+                                                             self.dataset.train_y[batch_indices])
                 for param_name, param in self.model.params().items():
                     optimizer = self.optimizers[param_name]
                     param.value = optimizer.update(param.value, param.grad, self.learning_rate)
@@ -109,8 +112,7 @@ class Trainer:
                 batch_losses.append(loss)
 
             if np.not_equal(self.learning_rate_decay, 1.0):
-                # TODO: Implement learning rate decay
-                raise Exception("Not implemented!")
+                self.learning_rate *= self.learning_rate_decay
 
             ave_loss = np.mean(batch_losses)
 
@@ -121,10 +123,36 @@ class Trainer:
                                                  self.dataset.val_y)
 
             print("Loss: %f, Train accuracy: %f, val accuracy: %f" %
-                  (batch_losses[-1], train_accuracy, val_accuracy))
+                  (ave_loss, train_accuracy, val_accuracy))
 
             loss_history.append(ave_loss)
             train_acc_history.append(train_accuracy)
             val_acc_history.append(val_accuracy)
 
         return loss_history, train_acc_history, val_acc_history
+
+
+if __name__=='__main__':
+    def prepare_for_neural_network(train_X, test_X):
+        train_flat = train_X.reshape(train_X.shape[0], -1).astype(np.float) / 255.0
+        test_flat = test_X.reshape(test_X.shape[0], -1).astype(np.float) / 255.0
+        
+        # Subtract mean
+        mean_image = np.mean(train_flat, axis = 0)
+        train_flat -= mean_image
+        test_flat -= mean_image
+        
+        return train_flat, test_flat
+        
+    train_X, train_y, test_X, test_y = load_svhn("./assignments/assignment2/data", max_train=10000, max_test=1000)    
+    train_X, test_X = prepare_for_neural_network(train_X, test_X)
+    # Split train into train and val
+    train_X, train_y, val_X, val_y = random_split_train_val(train_X, train_y, num_val = 1000)
+    
+    data_size = 32
+    model = TwoLayerNet(n_input = train_X.shape[1], n_output = 10, hidden_layer_size = 100, reg = 0)
+    dataset = Dataset(train_X[:data_size], train_y[:data_size], val_X[:data_size], val_y[:data_size])
+    trainer = Trainer(model, dataset, SGD(), num_epochs=10, batch_size=32, learning_rate=1e-0, learning_rate_decay=0.99)
+
+    initial_learning_rate = trainer.learning_rate
+    loss_history, train_history, val_history = trainer.fit()
